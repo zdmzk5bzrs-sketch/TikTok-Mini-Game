@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>TikTok Mini Game Prototype</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#08080b;color:#fff;font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;overflow:hidden}
+#game{width:min(100vw,430px);height:min(100vh,760px);position:relative;background:radial-gradient(circle at 50% 35%,#262638,#0b0b10 65%);overflow:hidden;border-radius:20px}
+.hud{position:absolute;top:18px;left:18px;right:18px;display:flex;justify-content:space-between;font-weight:800;font-size:18px;z-index:2}
+#arena{position:absolute;inset:80px 0 0}
+.target{position:absolute;width:74px;height:74px;border-radius:50%;display:grid;place-items:center;background:#fff;color:#111;font-size:26px;font-weight:900;box-shadow:0 0 35px rgba(255,255,255,.35);touch-action:manipulation;user-select:none}
+#start{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.35);z-index:3}
+button{border:0;border-radius:999px;padding:16px 30px;font-size:20px;font-weight:900;cursor:pointer}
+#msg{text-align:center}.small{opacity:.7;font-size:14px;margin-top:8px}
+</style>
+</head>
+<body>
+<div id="game">
+  <div class="hud"><span>النتيجة: <b id="score">0</b></span><span>الوقت: <b id="time">20</b></span></div>
+  <div id="arena"></div>
+  <div id="start"><div id="msg"><button id="play">ابدأ</button><div class="small">اضغط الهدف بأسرع ما يمكن</div></div></div>
+</div>
+<script>
+const arena=document.querySelector('#arena'),scoreEl=document.querySelector('#score'),timeEl=document.querySelector('#time'),start=document.querySelector('#start'),play=document.querySelector('#play');
+let score=0,time=20,running=false,timer,target;
+function spawn(){if(!running)return;if(target)target.remove();target=document.createElement('div');target.className='target';target.textContent='+';const w=arena.clientWidth-74,h=arena.clientHeight-74;target.style.left=Math.random()*Math.max(0,w)+'px';target.style.top=Math.random()*Math.max(0,h)+'px';target.onclick=hit;target.ontouchstart=e=>{e.preventDefault();hit()};arena.appendChild(target)}
+function hit(){if(!running)return;score++;scoreEl.textContent=score;spawn()}
+function end(){running=false;clearInterval(timer);if(target)target.remove();start.style.display='grid';play.textContent='العب مجددًا';document.querySelector('.small').textContent='نتيجتك: '+score}
+play.onclick=()=>{score=0;time=20;running=true;scoreEl.textContent=0;timeEl.textContent=20;start.style.display='none';spawn();clearInterval(timer);timer=setInterval(()=>{time--;timeEl.textContent=time;if(time<=0)end()},1000)}
+</script>
+</body>
+</html>
