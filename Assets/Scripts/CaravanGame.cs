@@ -23,6 +23,8 @@ public class CaravanGame : MonoBehaviour
     int caravanHp = 3;
     int defeatedThisRun;
     bool resultShown;
+    bool battleWon;
+    float enemyAttackTimer;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Boot()
@@ -234,6 +236,28 @@ public class CaravanGame : MonoBehaviour
         return 2;
     }
 
+    void Update()
+    {
+        if (!battleActive) return;
+        enemyAttackTimer += Time.deltaTime;
+        if (enemyAttackTimer >= 4f)
+        {
+            enemyAttackTimer = 0f;
+            caravanHp--;
+            if (caravanHp <= 0)
+            {
+                battleActive = false;
+                battleWon = false;
+                resultShown = true;
+                Show(ScreenId.Result);
+                return;
+            }
+            RefreshBattleStatus();
+        }
+    }
+
+    bool battleActive;
+
     void StartBattle()
     {
         wave = 1;
@@ -241,6 +265,9 @@ public class CaravanGame : MonoBehaviour
         caravanHp = 3;
         defeatedThisRun = 0;
         resultShown = false;
+        battleWon = false;
+        battleActive = true;
+        enemyAttackTimer = 0f;
         RenderBattle();
     }
 
@@ -298,6 +325,8 @@ public class CaravanGame : MonoBehaviour
         }
 
         resultShown = true;
+        battleWon = true;
+        battleActive = false;
         SaveProgress();
         Show(ScreenId.Result);
     }
@@ -310,23 +339,32 @@ public class CaravanGame : MonoBehaviour
 
     void Result()
     {
-        Header("🏆 وصلت القافلة", "الجولة اكتملت");
-
-        var reward = 50 + defeatedThisRun * 10;
-        var t = T(root, "✨\n\nغنيمة الطريق\n+" + reward + " 🪙\n\nهزمت " + defeatedThisRun + " من الغزاة", 36);
-        R(t, 0, 300, 1000, 420);
-
-        if (resultShown)
+        if (battleWon)
         {
-            coins += reward;
-            level = Mathf.Min(5, level + 1);
+            Header("🏆 وصلت القافلة", "الجولة اكتملت");
+            var reward = 50 + defeatedThisRun * 10;
+            var t = T(root, "✨\n\nغنيمة الطريق\n+" + reward + " 🪙\n\nهزمت " + defeatedThisRun + " من الغزاة", 36);
+            R(t, 0, 300, 1000, 420);
+
+            if (resultShown)
+            {
+                coins += reward;
+                level = Mathf.Min(5, level + 1);
+                resultShown = false;
+                SaveProgress();
+            }
+        }
+        else
+        {
+            Header("💥 سقطت القافلة", "حاول مرة أخرى");
+            var t = T(root, "القافلة تعرضت للهجوم\n\nهزمت " + defeatedThisRun + " من الغزاة", 36);
+            R(t, 0, 300, 1000, 300);
             resultShown = false;
-            SaveProgress();
         }
 
-        var next = B(root, "التالي →", 28);
+        var next = B(root, battleWon ? "التالي →" : "إعادة المحاولة ↻", 28);
         R(next, 0, -300, 980, 90);
-        next.onClick.AddListener(() => Show(ScreenId.Map));
+        next.onClick.AddListener(() => battleWon ? Show(ScreenId.Map) : Show(ScreenId.Loadout));
     }
 
     void Shop()
