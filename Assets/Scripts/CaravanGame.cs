@@ -14,6 +14,7 @@ public class CaravanGame : MonoBehaviour
     Canvas canvas;
     RectTransform root;
     Text toast;
+    Text battleStatus;
     int coins = 120;
     int level = 1;
     int weight;
@@ -64,6 +65,7 @@ public class CaravanGame : MonoBehaviour
         for (int i = root.childCount - 1; i >= 0; i--)
             Destroy(root.GetChild(i).gameObject);
         toast = null;
+        battleStatus = null;
     }
 
     void Show(ScreenId id)
@@ -248,8 +250,8 @@ public class CaravanGame : MonoBehaviour
 
         Header("⚔️ الدفاع عن القافلة", "اضغط الغزاة قبل وصولهم");
 
-        var status = T(root, "❤️ " + caravanHp + "     موجة " + wave + " / 3     أعداء: " + enemiesLeft, 25);
-        R(status, 0, 650, 1000, 60);
+        battleStatus = T(root, "❤️ " + caravanHp + "     موجة " + wave + " / 3     أعداء: " + enemiesLeft, 25);
+        R(battleStatus, 0, 650, 1000, 60);
 
         var scene = T(root, "🌙\n\n🏰                         🐪\n\n      ⚔️        🦂        ⚔️", 48);
         R(scene, 0, 150, 1000, 800);
@@ -275,7 +277,6 @@ public class CaravanGame : MonoBehaviour
     {
         if (enemyButton == null) return;
 
-        coins += 10;
         defeatedThisRun++;
         enemiesLeft = Mathf.Max(0, enemiesLeft - 1);
         Destroy(enemyButton.gameObject);
@@ -303,8 +304,8 @@ public class CaravanGame : MonoBehaviour
 
     void RefreshBattleStatus()
     {
-        var status = T(root, "❤️ " + caravanHp + "     موجة " + wave + " / 3     أعداء: " + enemiesLeft, 25);
-        R(status, 0, 650, 1000, 60);
+        if (battleStatus == null) return;
+        battleStatus.text = "❤️ " + caravanHp + "     موجة " + wave + " / 3     أعداء: " + enemiesLeft;
     }
 
     void Result()
