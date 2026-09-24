@@ -22,6 +22,7 @@ public class CaravanGame : MonoBehaviour
     int enemiesLeft;
     int caravanHp = 3;
     int defeatedThisRun;
+    int rewardGrantedThisRun;
     bool resultShown;
     bool battleWon;
     float enemyAttackTimer;
@@ -264,6 +265,7 @@ public class CaravanGame : MonoBehaviour
         enemiesLeft = 3;
         caravanHp = 3;
         defeatedThisRun = 0;
+        rewardGrantedThisRun = 0;
         resultShown = false;
         battleWon = false;
         battleActive = true;
@@ -346,11 +348,11 @@ public class CaravanGame : MonoBehaviour
             var t = T(root, "✨\n\nغنيمة الطريق\n+" + reward + " 🪙\n\nهزمت " + defeatedThisRun + " من الغزاة", 36);
             R(t, 0, 300, 1000, 420);
 
-            if (resultShown)
+            if (rewardGrantedThisRun == 0)
             {
                 coins += reward;
+                rewardGrantedThisRun = reward;
                 level = Mathf.Min(5, level + 1);
-                resultShown = false;
                 SaveProgress();
             }
         }
