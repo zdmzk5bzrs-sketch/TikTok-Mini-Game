@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>حارس القافلة</title>
+<style>
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; min-height: 100%; background: #10151d; color: #fff; font-family: Arial, sans-serif; touch-action: manipulation; }
+body { display: flex; justify-content: center; }
+#game { width: 100%; max-width: 520px; min-height: 100vh; padding: 12px; background: linear-gradient(#17232d, #0d1218); }
+h1 { text-align: center; font-size: 25px; margin: 5px 0 12px; }
+#hud { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-bottom: 10px; }
+.stat { background: #222e39; border: 1px solid #3c4b59; border-radius: 12px; padding: 9px 4px; text-align: center; font-size: 14px; font-weight: bold; }
+canvas { display: block; width: 100%; height: auto; border-radius: 18px; border: 2px solid #45584f; background: #20382f; }
+#message { min-height: 30px; text-align: center; font-size: 14px; font-weight: bold; padding: 8px 3px; }
+.controls { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+button { border: 0; border-radius: 13px; padding: 15px 8px; background: #d59a45; color: #17110a; font-size: 17px; font-weight: 900; box-shadow: 0 3px 0 #8b6026; }
+button:active { transform: translateY(2px); box-shadow: 0 1px 0 #8b6026; }
+button:disabled { opacity: 0.45; }
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.78); display: none; align-items: center; justify-content: center; padding: 18px; z-index: 10; }
+.panel { width: min(100%, 460px); background: #19242e; border: 1px solid #526273; border-radius: 20px; padding: 20px; box-shadow: 0 20px 60px #000; }
+.panel h2 { text-align: center; margin-top: 0; }
+.upgrade { width: 100%; margin: 8px 0; text-align: right; background: #293847; color: white; box-shadow: none; border: 1px solid #405264; }
+.upgrade small { display: block; margin-top: 4px; opacity: .8; }
+</style>
+</head>
+<body>
+<div id="game">
+<h1>🏜️ حارس القافلة</h1>
+<div id="hud">
+    <div class="stat">❤️ القافلة<br><span id="hp">20</span></div>
+    <div class="stat">🌊 الموجة<br><span id="wave">0</span></div>
+    <div class="stat">🪙 العملات<br><span id="coins">100</span></div>
+</div>
+<canvas id="canvas" width="480" height="620"></canvas>
+<div id="message">اضغط استدعاء لإضافة وحدة</div>
+<div class="controls">
+    <button id="summonButton">استدعاء 🪙10</button>
+    <button id="waveButton">ابدأ الموجة ⚔️</button>
+</div>
+</div>
+
+<div id="upgradeOverlay" class="overlay">
+    <div class="panel">
+        <h2>🎁 اختر ترقية واحدة</h2>
+        <div id="upgradeButtons"></div>
+    </div>
+</div>
+
+<div id="gameOverOverlay" class="overlay">
+    <div class="panel">
+        <h2>💥 خسرت القافلة</h2>
+        <p id="gameOverText" style="text-align:center"></p>
+        <button id="restartButton" style="width:100%">إعادة اللعب</button>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const hpText = document.getElementById("hp");
+const waveText = document.getElementById("wave");
+const coinsText = document.getElementById("coins");
+const message = document.getElementById("message");
+const summonButton = document.getElementById("summonButton");
+const waveButton = document.getElementById("waveButton");
+const upgradeOverlay = document.getElementById("upgradeOverlay");
+const upgradeButtons = document.getElementById("upgradeButtons");
+const gameOverOverlay = document.getElementById("gameOverOverlay");
+const gameOverText = document.getElementById("gameOverText");
+const restartButton = document.getElementById("restartButton");
+
+const GRID_SIZE = 5;
+const CELL_SIZE = 76;
+const GRID_X = 50;
+const GRID_Y = 210;
+
+const unitTypes = [
+    { name: "الحارس", icon: "🛡️", color: "#5fa7d9", damage: 2, range: 155, cooldown: 900 },
+    { name: "الرامي", icon: "🏹", color: "#73c96b", damage: 3, range: 210, cooldown: 1100 },
+    { name: "الساحر", icon: "🔮", color: "#ad76df", damage: 4, range: 175, cooldown: 1350 }
+];
+
+let grid = new Array(25).fill(null);
+let enemies = [];
+let bullets = [];
+let effects = [];
+let hp = 20;
+let wave = 0;
+let coins = 100;
+let waveRunning = false;
+let gameOver = false;
+let selectedCell = -1;
+let lastFrame = performance.now();
+let waveStartedAt = 0;
+let enemySpawnTimer = 0;
+let attackTimers = new Array(25).fill(0);
+let upgrades = { damage: 0, range: 0, speed: 0, hp: 0 };
+
+function updateHUD() {
+    hpText.textContent = hp;
+    waveText.textContent = wave;
+    coinsText.textContent = coins;
+    summonButton.disabled = waveRunning || gameOver || coins < 10;
+    waveButton.disabled = waveRunning || gameOver;
+}
+
+function getCellPosition(index) {
+    return {
+        x: GRID_X + (index % GRID_SIZE) * CELL_SIZE,
+        y: GRID_Y + Math.floor(index / GRID_SIZE) * CELL_SIZE
+    };
+}
+
+function drawGame() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const background = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    background.addColorStop(0, "#29483e");
+    background.addColorStop(1, "#17261f");
+    ctx.fillStyle = background;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "#c99857";
+    ctx.fillRect(0, 82, 480, 86);
+    ctx.fillStyle = "#f8ead0";
+    ctx.font = "bold 18px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("🐪 القافلة", 240, 120);
+    ctx.fillStyle = "#a87843";
+    ctx.fillRect(0, 145, 480, 23);
+
+    for (let i = 0; i < 25; i++) {
+        const p = getCellPosition(i);
+        ctx.fillStyle = ((Math.floor(i / 5) + i) % 2 === 0) ? "#2d443d" : "#263b35";
+        ctx.fillRect(p.x, p.y, 72, 72);
+        ctx.strokeStyle = "#4d645c";
+        ctx.strokeRect(p.x, p.y, 72, 72);
+    }
+
+    if (selectedCell >= 0) {
+        const p = getCellPosition(selectedCell);
+        ctx.strokeStyle = "#ffd166";
+        ctx.lineWidth = 4;
+        ctx.strokeRect(p.x + 2, p.y + 2, 68, 68);
+        ctx.lineWidth = 1;
+    }
+
+    for (let i = 0; i < grid.length; i++) {
+        const unit = grid[i];
+        if (!unit) continue;
+        const p = getCellPosition(i);
+        ctx.fillStyle = unit.color;
+        ctx.beginPath();
+        ctx.arc(p.x + 36, p.y + 36, 27, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = "30px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(unit.icon, p.x + 36, p.y + 44);
+        ctx.font = "bold 12px Arial";
+        ctx.fillStyle = "#fff";
+        ctx.fillText("Lv." + unit.level, p.x + 36, p.y + 66);
+    }
+
+    for (const enemy of enemies) {
+        ctx.fillStyle = enemy.color;
+        ctx.beginPath();
+        ctx.arc(enemy.x, enemy.y, 20, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = "25px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(enemy.icon, enemy.x, enemy.y + 8);
+        ctx.fillStyle = "#421919";
+        ctx.fillRect(enemy.x - 25, enemy.y - 32, 50, 6);
+        ctx.fillStyle = "#70df7a";
+        const healthRatio = Math.max(0, enemy.hp / enemy.maxHp);
+        ctx.fillRect(enemy.x - 25, enemy.y - 32, 50 * healthRatio, 6);
+    }
+
+    for (const bullet of bullets) {
+        ctx.fillStyle = bullet.color;
+        ctx.beginPath();
+        ctx.arc(bullet.x, bullet.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    for (const effect of effects) {
+        ctx.globalAlpha = effect.life / 0.3;
+        ctx.strokeStyle = effect.color;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(effect.x, effect.y, 8 + (1 - effect.life / 0.3) * 25, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+    }
+
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 14px Arial";
+    ctx.textAlign = "center";
+    if (waveRunning) {
+        ctx.fillText("⚔️ الموجة جارية", 240, 600);
+    } else {
+        ctx.fillText("اضغط وحدة ثم اضغط وحدة من نفس النوع لدمجها", 240, 600);
+    }
+}
+
+function summonUnit() {
+    if (waveRunning || gameOver) return;
+    if (coins < 10) { message.textContent = "لا تملك عملات كافية"; return; }
+    const emptyCells = [];
+    for (let i = 0; i < grid.length; i++) { if (!grid[i]) emptyCells.push(i); }
+    if (emptyCells.length === 0) { message.textContent = "الشبكة ممتلئة — ادمج وحداتك"; return; }
+    coins -= 10;
+    const cell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+    const type = Math.floor(Math.random() * unitTypes.length);
+    const info = unitTypes[type];
+    grid[cell] = { type: type, level: 1, name: info.name, icon: info.icon, color: info.color };
+    message.textContent = "تم استدعاء " + info.name;
+    updateHUD();
+}
+
+function mergeUnits(from, to) {
+    const first = grid[from];
+    const second = grid[to];
+    if (!first || !second) { message.textContent = "اختر وحدتين"; return; }
+    if (first.type !== second.type) { message.textContent = "يجب أن تكون الوحدتان من نفس النوع"; return; }
+    if (first.level !== second.level) { message.textContent = "يجب أن تكون الوحدتان بنفس المستوى"; return; }
+    const info = unitTypes[first.type];
+    grid[to] = { type: first.type, level: first.level + 1, name: info.name, icon: info.icon, color: info.color };
+    grid[from] = null;
+    message.textContent = "✨ تم الدمج — المستوى " + (first.level + 1);
+}
+
+canvas.addEventListener("pointerdown", function(event) {
+    if (waveRunning || gameOver) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (event.clientX - rect.left) * scaleX;
+    const y = (event.clientY - rect.top) * scaleY;
+    const column = Math.floor((x - GRID_X) / CELL_SIZE);
+    const row = Math.floor((y - GRID_Y) / CELL_SIZE);
+    if (column < 0 || column >= 5 || row < 0 || row >= 5) return;
+    const index = row * 5 + column;
+    if (selectedCell === -1) {
+        if (grid[index]) { selectedCell = index; message.textContent = "اختر وحدة ثانية للدمج"; }
+        return;
+    }
+    if (index === selectedCell) { selectedCell = -1; message.textContent = "تم إلغاء الاختيار"; return; }
+    mergeUnits(selectedCell, index);
+    selectedCell = + -1;
+    updateHUD();
+});
+
+function spawnEnemy()  {
+    const lane = Math.floor(Math.random36() * 5);
+    const maxHealth = 10 + wave * 5;
+    enemies.push({
+        x: GRID_X + lane * CELL_SIZE,
+        y: 600,
+        lane: lane,
+        hp: maxHealth,
+        maxHp: maxHealth,
+        speed: 18 + wave * 2,
+        icon: wave % 3 === 0 ? "👹" : "👾",
+        color: wave % 3 === 0 ? "#a44f61" : "#c65c54"
+    });
+}
+
+function startWave() {
+    if (waveRunning || gameOver) return;
+    wave++;
+    waveRunning = true;
+    enemies = [];
+    bullets = [];
+    enemySpawnTimer = 0;
+    waveStartedAt = performance.now();
+    message.textContent = "🌊 بدأت الموجة " + wave;
+    updateHUD();
+}
+
+function damageEnemy(enemy, damage) {
+    enemy.hp -= damage;
+    effects.push({ x: enemy.x, y: enemy.y, life: 0.3, color: "#ffd166" });
+    if (enemy.hp <= 0) {
+        coins += 3;
+        enemies = enemies.filter(e => e !== enemy);
+    }
+}
+
+function finishWave() {
+    waveRunning = false;
+    message.textContent = "🏆 انتهت الموجة — اختر ترقية";
+    showUpgrades();
+    updateHUD();
+}
+
+function showUpgrades() {
+    const options = [
+        { title: "⚔️ ضرر أعلى", description: "زيادة ضرر الوحدات 20%", key: "damage" },
+        { title: "🎯 مدى أبعد", description: "زيادة مدى الهجوم", key: "range" },
+        { title: "⚡ سرعة أعلى", description: "الهجوم يصبح أسرع", key: "speed" },
+        { title: "❤️ قافلة أقوى", description: "إضافة 3 نقاط للقافلة", key: "hp" }
+    ];
+    options.sort(() => Math.random() - 0.5);
+    const selected = options.slice(0, 3);
+    upgradeButtons.innerHTML = "";
+    for (const option of selected) {
+        const button = document.createElement("button");
+        button.className = "upgrade";
+        button.innerHTML = "<b>" + option.title + "</b><small>" + option.description + "</small>";
+        button.onclick = function() {
+            upgrades[option.key]++;
+            if (option.key === "hp") hp += 3;
+            upgradeOverlay.style.display = "none";
+            message.textContent = "تم اختيار: " + option.title;
+            updateHUD();
+        };
+        upgradeButtons.appendChild(button);
+    }
+    upgradeOverlay.style.display = "flex";
+}
+
+function loseGame() {
+    waveRunning = false;
+    gameOver = true;
+    gameOverText.textContent = "وصلت إلى الموجة " + wave;
+    gameOverOverlay.style.display = "flex";
+    updateHUD();
+}
+
+function restartGame() {
+    grid = new Array(25).fill(null);
+    enemies = [];
+    bullets = [];
+    effects = [];
+    hp = 20;
+    wave = 0;
+    coins = 100;
+    waveRunning = false;
+    gameOver = false;
+    selectedCell = -1;
+    attackTimers = new Array(25).fill(0);
+    upgrades = { damage: 0, range: 0, speed: 0, hp: 0 };
+    gameOverOverlay.style.display = "none";
+    upgradeOverlay.style.display = "none";
+    message.textContent = "اضغط استدعاء لإضافة وحدة";
+    updateHUD();
+}
+
+function updateGame(now, delta) {
+    if (waveRunning) {
+        enemySpawnTimer += delta;
+        const spawnDelay = Math.max(650, 1500 - wave * 70);
+        if (enemySpawnTimer >= spawnDelay) {
+            enemySpawnTimer = 0;
+            const maximum = Math.min(3 + wave, 8);
+            if (enemies.length < maximum) spawnEnemy();
+        }
+
+        for (const enemy of enemies) {
+            enemy.y -= enemy.speed * delta / 1000;
+            if (enemy.y <= 170) {
+                hp--;
+                enemy.hp = 0;
+                effects.push({ x: enemy.x, y: 170, life: 0.3, color: "#ff4d4d" });
+            }
+        }
+        enemies = enemies.filter(enemy => enemy.hp > 0);
+
+        for (let i = 0; i < grid.length; i++) {
+            const unit = grid[i];
+            if (!unit) continue;
+            const position = getCellPosition(i);
+            const centerX = position.x + 36;
+            const centerY = position.y + 36;
+            const info = unitTypes[unit.type];
+            const range = info.range + upgrades.range * 18;
+            const cooldown = Math.max(220, info.cooldown * Math.pow(0.9, unit.level - 1) - upgrades.speed * 90);
+            if (now - attackTimers[i] < cooldown) continue;
+            let target = null;
+            let closest = Infinity;
+            for (const enemy of enemies) {
+                const distance = Math.hypot(enemy.x - centerX, enemy.y - centerY);
+                if (distance <= range && distance < closest) { closest = distance; target = enemy; }
+            }
+            if (!target) continue;
+            attackTimers[i] = now;
+            bullets.push({
+                x: centerX, y: centerY, target: target,
+                damage: info.damage * unit.level * (1 + upgrades.damage * 0.2),
+                speed: 270, color: info.color
+            });
+        }
+
+        for (const bullet of bullets) {
+            if (!bullet.target || !enemies.includes(bullet.target)) { bullet.dead = true; continue; }
+            const dx = bullet.target.x - bullet.x;
+            const dy = bullet.target.y - bullet.y;
+            const distance = Math.hypot(dx, dy);
+            const movement = bullet.speed * delta / 1000;
+            if (distance <= movement) {
+                damageEnemy(bullet.target, bullet.damage);
+                bullet.dead = true;
+            } else {
+                bullet.x += dx / distance * movement;
+                bullet.y += dy / distance * movement;
+            }
+        }
+        bullets = bullets.filter(bullet => !bullet.dead);
+
+        if (hp <= 0) { loseGame(); return; }
+
+        if (enemies.length === 0 && now - waveStartedAt > Math.max(4000, wave * 750)) {
+            finishWave();
+        }
+    }
+
+    for (const effect of effects) { effect.life -= delta / 1000; }
+    effects = effects.filter(effect => effect.life > 0);
+    updateHUD();
+}
+
+function gameLoop(now) {
+    const delta = Math.min(50, now - lastFrame);
+    lastFrame = now;
+    updateGame(now, delta);
+    drawGame();
+    requestAnimationFrame(gameLoop);
+}
+
+summonButton.addEventListener("click", summonUnit);
+waveButton.addEventListener("click", startWave);
+restartButton.addEventListener("click", restartGame);
+
+updateHUD();
+drawGame();
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
