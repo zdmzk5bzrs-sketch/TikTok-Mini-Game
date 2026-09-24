@@ -1,14 +1,65 @@
 <!doctype html>
-<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>حارس القافلة</title>
-<style>body{margin:0;background:#17110c;color:#fff;font-family:Arial,sans-serif;text-align:center}main{max-width:480px;margin:auto;padding:20px}button{display:block;width:100%;margin:10px 0;padding:18px;border:0;border-radius:12px;background:#392619;color:#fff;font-size:20px}#scene{height:330px;border-radius:18px;background:linear-gradient(#171b2b,#8d5b31);position:relative;margin:20px 0;overflow:hidden}#camel{position:absolute;bottom:55px;left:30px;font-size:60px}.enemy{position:absolute;bottom:70px;font-size:48px;cursor:pointer;transition:.15s}.enemy:hover{transform:scale(1.15)}.hide{display:none}.stat{font-size:20px;margin:12px}</style></head>
-<body><main><h1>🏜️ حارس القافلة</h1><div id="stats" class="stat"></div><div id="scene"><div id="camel">🐪</div></div><div id="msg">اضغط الغزاة قبل أن يصلوا للقافلة!</div><button id="start">ابدأ الدفاع ⚔️</button><button id="reset" class="hide">إعادة المحاولة ↻</button></main>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>حارس القافلة</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%;background:#10151d;color:#f7f2e8;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;touch-action:manipulation}
+body{display:flex;justify-content:center}#app{width:min(100%,520px);min-height:100vh;padding:14px 12px 22px;background:linear-gradient(#17202a,#0d1219)}
+h1{font-size:25px;margin:4px 0 10px;text-align:center}#hud{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:10px}
+.stat{background:#202a35;border:1px solid #354352;border-radius:12px;padding:8px;text-align:center;font-weight:700;font-size:14px}
+canvas{display:block;width:100%;height:auto;border-radius:18px;background:#182b26;border:2px solid #405447;box-shadow:0 8px 25px #0007}
+#message{min-height:27px;text-align:center;padding:7px;font-size:14px;font-weight:700}.controls{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+button{border:0;border-radius:13px;padding:14px 10px;background:#d69b45;color:#17110a;font-weight:900;font-size:17px;box-shadow:0 3px 0 #8d6227;touch-action:manipulation}
+button:active{transform:translateY(2px);box-shadow:0 1px 0 #8d6227}button:disabled{opacity:.45}
+#upgradePanel,#gameover{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;padding:18px;z-index:5}
+#upgradeBox,#gameoverBox{width:min(100%,470px);background:#18222d;border:1px solid #526272;border-radius:20px;padding:18px;box-shadow:0 20px 60px #000}
+#upgradeBox h2{text-align:center;margin:0 0 8px}.cards{display:grid;gap:10px}.card{text-align:right;background:#263443;color:#fff;box-shadow:none;border:1px solid #405267}
+.card b{display:block;font-size:18px;margin-bottom:3px}.card small{display:block;font-weight:600;opacity:.85}
+#gameoverBox{text-align:center;padding:25px}#gameoverBox button{width:100%}
+</style>
+</head>
+<body>
+<div id="app"><h1>🏜️ حارس القافلة</h1>
+<div id="hud"><div class="stat">❤️ القافلة <span id="hp">20</span></div><div class="stat">🌊 الموجة <span id="wave">0</span></div><div class="stat">🪙 العملات <span id="coins">100</span></div></div>
+<canvas id="game" width="480" height="620"></canvas><div id="message">ضع وحداتك ثم ابدأ الموجة</div>
+<div class="controls"><button id="summon">استدعاء 🪙10</button><button id="startWave">ابدأ الموجة ⚔️</button></div></div>
+<div id="upgradePanel"><div id="upgradeBox"><h2>اختر ترقية</h2><div class="cards" id="cards"></div></div></div>
+<div id="gameover"><div id="gameoverBox"><h2>💥 خسرت القافلة</h2><p id="finalText"></p><button id="restart">إعادة اللعب</button></div></div>
 <script>
-let hp=3,wave=1,left=3,coins=120,active=false,timer;
-const scene=document.querySelector('#scene'),stats=document.querySelector('#stats'),msg=document.querySelector('#msg'),start=document.querySelector('#start'),reset=document.querySelector('#reset');
-function update(){stats.textContent='❤️ '+hp+'   |   الموجة '+wave+'/3   |   الأعداء '+left+'   |   🪙 '+coins}
-function spawn(){for(let i=0;i<3;i++){let e=document.createElement('button');e.className='enemy';e.textContent=i===1?'🦂':'⚔️';e.style.left=(210+i*75)+'px';e.style.bottom=(65+i%2*55)+'px';e.onclick=()=>{if(!active)return;e.remove();left--;coins+=10;update();if(left===0){if(wave<3){wave++;left=3;msg.textContent='موجة جديدة!';spawn()}else win()}};scene.appendChild(e)}}
-function startGame(){hp=3;wave=1;left=3;active=true;start.classList.add('hide');reset.classList.add('hide');msg.textContent='دافع عن القافلة!';document.querySelectorAll('.enemy').forEach(e=>e.remove());update();spawn();clearInterval(timer);timer=setInterval(()=>{if(!active)return;hp--;update();if(hp<=0)lose()},3500)}
-function win(){active=false;clearInterval(timer);coins+=50+9*10;msg.textContent='🏆 وصلت القافلة! المكافأة +140 🪙';reset.classList.remove('hide');update()}
-function lose(){active=false;clearInterval(timer);msg.textContent='💥 سقطت القافلة!';reset.classList.remove('hide');document.querySelectorAll('.enemy').forEach(e=>e.remove());}
-start.onclick=startGame;reset.onclick=startGame;update();
+const canvas=document.getElementById("game"),ctx=canvas.getContext("2d");
+const hpEl=document.getElementById("hp"),waveEl=document.getElementById("wave"),coinsEl=document.getElementById("coins"),msg=document.getElementById("message");
+const summonBtn=document.getElementById("summon"),waveBtn=document.getElementById("startWave"),upgradePanel=document.getElementById("upgradePanel"),cards=document.getElementById("cards"),gameover=document.getElementById("gameover"),finalText=document.getElementById("finalText");
+const N=5,cell=76,ox=50,oy=210;
+const types=[{name:"حارس",icon:"🛡️",color:"#65a8d9",baseDamage:2,range:155,rate:900},{name:"رامي",icon:"🏹",color:"#7acb72",baseDamage:3,range:210,rate:1100},{name:"ساحر",icon:"🔮",color:"#b77be8",baseDamage:4,range:175,rate:1350}];
+let grid=Array.from({length:25},()=>null),enemies=[],projectiles=[],effects=[],hp=20,wave=0,coins=100,running=false,gameOver=false,last=0,spawnTimer=0,lastAttack=Array(25).fill(0),waveStart=0,selected=-1,upgrades={damage:0,range:0,rate:0,hp:0};
+function updateHud(){hpEl.textContent=hp;waveEl.textContent=wave;coinsEl.textContent=coins;summonBtn.disabled=running||gameOver||coins<10;waveBtn.disabled=running||gameOver}
+function cellXY(i){return{x:ox+(i%N)*cell,y:oy+Math.floor(i/N)*cell}}
+function draw(){
+ctx.clearRect(0,0,480,620);const g=ctx.createLinearGradient(0,0,0,620);g.addColorStop(0,"#243d38");g.addColorStop(1,"#18271f");ctx.fillStyle=g;ctx.fillRect(0,0,480,620);
+ctx.fillStyle="#d2a15c";ctx.fillRect(0,82,480,86);ctx.font="bold 17px system-ui";ctx.fillStyle="#f8ead0";ctx.textAlign="center";ctx.fillText("🐪 القافلة",240,120);ctx.fillStyle="#b8894d";ctx.fillRect(0,145,480,23);
+for(let i=0;i<25;i++){const p=cellXY(i);ctx.fillStyle=(Math.floor(i/N)+i)%2?"#263a35":"#2b413b";ctx.fillRect(p.x,p.y,72,72);ctx.strokeStyle="#496058";ctx.strokeRect(p.x,p.y,72,72)}
+grid.forEach((u,i)=>{if(!u)return;const p=cellXY(i);ctx.fillStyle=u.color;ctx.beginPath();ctx.arc(p.x+36,p.y+36,27,0,Math.PI*2);ctx.fill();ctx.font="29px serif";ctx.textAlign="center";ctx.fillText(u.icon,p.x+36,p.y+43);ctx.font="bold 13px system-ui";ctx.fillStyle="#fff";ctx.fillText("Lv."+u.level,p.x+36,p.y+66)});
+enemies.forEach(e=>{ctx.fillStyle=e.color;ctx.beginPath();ctx.arc(e.x,e.y,20,0,Math.PI*2);ctx.fill();ctx.font="24px serif";ctx.fillText(e.icon,e.x,e.y+8);ctx.fillStyle="#401818";ctx.fillRect(e.x-24,e.y-31,48,5);ctx.fillStyle="#6ee078";ctx.fillRect(e.x-24,e.y-31,48*Math.max(0,e.hp/e.maxHp),5)});
+projectiles.forEach(p=>{ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,5,0,Math.PI*2);ctx.fill()});effects.forEach(e=>{ctx.globalAlpha=e.life/.3;ctx.strokeStyle=e.color;ctx.lineWidth=3;ctx.beginPath();ctx.arc(e.x,e.y,24*(1-e.life/.3)+5,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1});
+ctx.fillStyle="#fff";ctx.font="bold 14px system-ui";ctx.fillText(running?"الموجة جارية":"اسحب وحدة إلى وحدة من نفس النوع والمستوى للدمج",240,600)
+}
+function summon(){if(running||gameOver||coins<10)return;const free=grid.map((u,i)=>u?null:i).filter(i=>i!==null);if(!free.length){msg.textContent="الشبكة ممتلئة — ادمج وحداتك";return}coins-=10;const i=free[Math.floor(Math.random()*free.length)],t=types[Math.floor(Math.random()*types.length)];grid[i]={type:types.indexOf(t),level:1,icon:t.icon,color:t.color};msg.textContent="تم استدعاء "+t.name;updateHud()}
+function merge(from,to){const a=grid[from],b=grid[to];if(!a||!b||from===to)return false;if(a.type!==b.type||a.level!==b.level){msg.textContent="الدمج يحتاج نفس النوع ونفس المستوى";return false}const t=types[a.type];grid[to]={type:a.type,level:a.level+1,icon:t.icon,color:t.color};grid[from]=null;msg.textContent="✨ "+t.name+" أصبح المستوى "+(a.level+1);return true}
+canvas.addEventListener("pointerdown",e=>{if(gameOver)return;const r=canvas.getBoundingClientRect(),sx=canvas.width/r.width,sy=canvas.height/r.height,x=(e.clientX-r.left)*sx,y=(e.clientY-r.top)*sy,col=Math.floor((x-ox)/cell),row=Math.floor((y-oy)/cell);if(col<0||col>=N||row<0||row>=N||running)return;const i=row*N+col;if(selected<0){if(grid[i]){selected=i;msg.textContent="اختر وحدة ثانية للدمج"}}else{if(i!==selected)merge(selected,i);selected=-1}});
+function spawnEnemy(){const maxHp=9+wave*4,lane=Math.floor(Math.random()*N);enemies.push({x:ox+lane*cell+36,y:180,hp:maxHp,maxHp,speed:18+wave*1.8,lane,icon:wave%3===0?"👹":"👾",color:wave%3===0?"#9b5360":"#c65f54"})}
+function beginWave(){if(running||gameOver)return;wave++;running=true;spawnTimer=0;enemies=[];projectiles=[];waveStart=performance.now();msg.textContent="الموجة "+wave+" بدأت!";updateHud()}
+function damageEnemy(e,d){e.hp-=d;effects.push({x:e.x,y:e.y,life:.3,color:"#ffd166"});if(e.hp<=0){coins+=3;enemies=enemies.filter(x=>x!==e)}}
+function endWave(){running=false;msg.textContent="الموجة انتهت — اختر ترقية";showUpgrades();updateHud()}
+function showUpgrades(){const options=[{title:"⚔️ ضرر أعلى",desc:"+20% ضرر للوحدات",key:"damage"},{title:"🎯 مدى أبعد",desc:"+18 مدى الهجوم",key:"range"},{title:"⚡ سرعة هجوم",desc:"الهجوم أسرع",key:"rate"},{title:"❤️ قافلة أقوى",desc:"+3 HP",key:"hp"}].sort(()=>Math.random()-.5).slice(0,3);cards.innerHTML="";options.forEach(o=>{const b=document.createElement("button");b.className="card";b.innerHTML="<b>"+o.title+"</b><small>"+o.desc+"</small>";b.onclick=()=>{upgrades[o.key]++;if(o.key==="hp")hp+=3;upgradePanel.style.display="none";msg.textContent="تم اختيار: "+o.title;updateHud()};cards.appendChild(b)});upgradePanel.style.display="flex"}
+function lose(){running=false;gameOver=true;finalText.textContent="وصلت إلى الموجة "+wave+".";gameover.style.display="flex";updateHud()}
+function reset(){grid=Array(25).fill(null);enemies=[];projectiles=[];effects=[];hp=20;wave=0;coins=100;running=false;gameOver=false;selected=-1;upgrades={damage:0,range:0,rate:0,hp:0};gameover.style.display="none";upgradePanel.style.display="none";msg.textContent="ضع وحداتك ثم ابدأ الموجة";updateHud()}
+summonBtn.onclick=summon;waveBtn.onclick=beginWave;document.getElementById("restart").onclick=reset;
+function tick(now,dt){if(running){spawnTimer+=dt;if(spawnTimer>Math.max(650,1500-wave*70)){spawnTimer=0;if(enemies.length<Math.min(3+wave,8))spawnEnemy()}enemies.forEach(e=>{e.y+=e.speed*dt/1000;if(e.y>525){hp--;e.hp=0;effects.push({x:e.x,y:525,life:.3,color:"#ff4d4d"})}});enemies=enemies.filter(e=>e.hp>0);
+grid.forEach((u,i)=>{if(!u)return;const p=cellXY(i),cx=p.x+36,cy=p.y+36,t=types[u.type],range=t.range+upgrades.range*18,rate=Math.max(220,t.rate*Math.pow(.9,u.level-1)-upgrades.rate*90);if(now-lastAttack[i]<rate)return;const targets=enemies.filter(e=>Math.hypot(e.x-cx,e.y-cy)<range);if(!targets.length)return;const e=targets[0];lastAttack[i]=now;projectiles.push({x:cx,y:cy,target:e,dmg:t.baseDamage*u.level*(1+upgrades.damage*.2),speed:260,color:t.color})});
+projectiles.forEach(p=>{if(!p.target||!enemies.includes(p.target)){p.dead=true;return}const dx=p.target.x-p.x,dy=p.target.y-p.y,d=Math.hypot(dx,dy),step=p.speed*dt/1000;if(d<=step){damageEnemy(p.target,p.dmg);p.dead=true}else{p.x+=dx/d*step;p.y+=dy/d*step}});projectiles=projectiles.filter(p=>!p.dead);
+if(hp<=0){lose();return}if(enemies.length===0&&now-waveStart>Math.max(4000,wave*750))endWave()}
+effects.forEach(e=>e.life-=dt/1000);effects=effects.filter(e=>e.life>0);updateHud()}
+let last=performance.now();function loop(t){const dt=Math.min(50,t-last);last=t;tick(t,dt);draw();requestAnimationFrame(loop)}requestAnimationFrame(loop);updateHud();
 </script></body></html>
