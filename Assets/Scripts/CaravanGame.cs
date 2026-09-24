@@ -25,6 +25,8 @@ public class CaravanGame : MonoBehaviour
     int rewardGrantedThisRun;
     int currentStage;
     int battlesCompleted;
+    int totalEnemiesDefeated;
+    int currentRunBestHp;
     bool resultShown;
     bool battleWon;
     float enemyAttackTimer;
@@ -275,6 +277,7 @@ public class CaravanGame : MonoBehaviour
         caravanHp = 3;
         defeatedThisRun = 0;
         rewardGrantedThisRun = 0;
+        currentRunBestHp = caravanHp;
         resultShown = false;
         battleWon = false;
         battleActive = true;
@@ -316,6 +319,7 @@ public class CaravanGame : MonoBehaviour
         if (enemyButton == null) return;
 
         defeatedThisRun++;
+        totalEnemiesDefeated++;
         enemiesLeft = Mathf.Max(0, enemiesLeft - 1);
         Destroy(enemyButton.gameObject);
 
@@ -434,6 +438,9 @@ public class CaravanGame : MonoBehaviour
         };
 
         float y = 520;
+        var progress = T(root, "المعارك المكتملة: " + battlesCompleted + "    الغزاة المهزومون: " + totalEnemiesDefeated, 20);
+        R(progress, 0, 650, 1000, 45);
+
         foreach (var mission in missions)
         {
             var b = B(root, mission, 22);
@@ -485,6 +492,8 @@ public class CaravanGame : MonoBehaviour
         weight = 0;
         currentStage = 0;
         battlesCompleted = 0;
+        totalEnemiesDefeated = 0;
+        currentRunBestHp = 3;
         SaveProgress();
         Show(ScreenId.Home);
     }
@@ -495,6 +504,7 @@ public class CaravanGame : MonoBehaviour
         PlayerPrefs.SetInt("caravan_level", level);
         PlayerPrefs.SetInt("caravan_stage", currentStage);
         PlayerPrefs.SetInt("caravan_battles", battlesCompleted);
+        PlayerPrefs.SetInt("caravan_defeated", totalEnemiesDefeated);
         PlayerPrefs.Save();
     }
 
@@ -504,6 +514,7 @@ public class CaravanGame : MonoBehaviour
         level = PlayerPrefs.GetInt("caravan_level", 1);
         currentStage = Mathf.Clamp(PlayerPrefs.GetInt("caravan_stage", 0), 0, stages.Length - 1);
         battlesCompleted = PlayerPrefs.GetInt("caravan_battles", 0);
+        totalEnemiesDefeated = PlayerPrefs.GetInt("caravan_defeated", 0);
     }
 
     void ShowToast(string message)
