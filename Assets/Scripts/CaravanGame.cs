@@ -297,16 +297,20 @@ public class CaravanGame : MonoBehaviour
         var scene = T(root, "🌙\n\n🏰                         🐪\n\n      ⚔️        🦂        ⚔️", 48);
         R(scene, 0, 150, 1000, 800);
 
-        float x = -280;
         string[] enemyTypes = { "⚔️", "🦂", "🐺", "🏹", "🛡️" };
 
         for (int i = 0; i < enemiesLeft; i++)
         {
             int enemyIndex = i;
+            int columns = Mathf.Min(3, enemiesLeft);
+            int row = i / columns;
+            int column = i % columns;
+            float x = (column - (columns - 1) * 0.5f) * 290f;
+            float y = -180f - row * 170f;
+
             var b = B(root, enemyTypes[(i + currentStage) % enemyTypes.Length], 45);
-            R(b, x, -250, 180, 120);
+            R(b, x, y, 180, 120);
             b.onClick.AddListener(() => HitEnemy(b, enemyIndex));
-            x += 280;
         }
 
         var retreat = B(root, "انسحاب", 22);
