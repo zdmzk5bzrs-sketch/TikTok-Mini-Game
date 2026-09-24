@@ -24,6 +24,7 @@ public class CaravanGame : MonoBehaviour
     int defeatedThisRun;
     int rewardGrantedThisRun;
     int currentStage;
+    int battlesCompleted;
     bool resultShown;
     bool battleWon;
     float enemyAttackTimer;
@@ -184,7 +185,8 @@ public class CaravanGame : MonoBehaviour
 
     void OpenStage(int stage)
     {
-        currentStage = Mathf.Clamp(stage, 0, stages.Length - 1);
+        currentStage = Mathf.Clamp(stage, 0, Mathf.Min(level, stages.Length) - 1);
+        SaveProgress();
         Show(ScreenId.Loadout);
     }
 
@@ -336,6 +338,7 @@ public class CaravanGame : MonoBehaviour
         resultShown = true;
         battleWon = true;
         battleActive = false;
+        battlesCompleted++;
         SaveProgress();
         Show(ScreenId.Result);
     }
@@ -480,6 +483,8 @@ public class CaravanGame : MonoBehaviour
         level = 1;
         selected.Clear();
         weight = 0;
+        currentStage = 0;
+        battlesCompleted = 0;
         SaveProgress();
         Show(ScreenId.Home);
     }
@@ -488,6 +493,8 @@ public class CaravanGame : MonoBehaviour
     {
         PlayerPrefs.SetInt("caravan_coins", coins);
         PlayerPrefs.SetInt("caravan_level", level);
+        PlayerPrefs.SetInt("caravan_stage", currentStage);
+        PlayerPrefs.SetInt("caravan_battles", battlesCompleted);
         PlayerPrefs.Save();
     }
 
@@ -495,6 +502,8 @@ public class CaravanGame : MonoBehaviour
     {
         coins = PlayerPrefs.GetInt("caravan_coins", 120);
         level = PlayerPrefs.GetInt("caravan_level", 1);
+        currentStage = Mathf.Clamp(PlayerPrefs.GetInt("caravan_stage", 0), 0, stages.Length - 1);
+        battlesCompleted = PlayerPrefs.GetInt("caravan_battles", 0);
     }
 
     void ShowToast(string message)
