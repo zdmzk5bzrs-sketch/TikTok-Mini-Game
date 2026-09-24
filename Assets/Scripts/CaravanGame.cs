@@ -23,6 +23,7 @@ public class CaravanGame : MonoBehaviour
     int caravanHp = 3;
     int defeatedThisRun;
     int rewardGrantedThisRun;
+    int currentStage;
     bool resultShown;
     bool battleWon;
     float enemyAttackTimer;
@@ -171,7 +172,7 @@ public class CaravanGame : MonoBehaviour
             R(b, 0, y, 980, 100);
 
             if (unlocked)
-                b.onClick.AddListener(() => Show(ScreenId.Loadout));
+                b.onClick.AddListener(() => OpenStage(stage));
 
             y -= 120;
         }
@@ -181,9 +182,15 @@ public class CaravanGame : MonoBehaviour
         h.onClick.AddListener(() => Show(ScreenId.Home));
     }
 
+    void OpenStage(int stage)
+    {
+        currentStage = Mathf.Clamp(stage, 0, stages.Length - 1);
+        Show(ScreenId.Loadout);
+    }
+
     void Loadout()
     {
-        Header("🎒 تجهيز القافلة", "سعة الحمولة 10 — اختر أدواتك");
+        Header("🎒 تجهيز القافلة", stages[currentStage] + " — سعة الحمولة 10");
 
         var c = T(root, "السعة: " + weight + " / 10", 24);
         R(c, 0, 650, 1000, 55);
@@ -198,7 +205,7 @@ public class CaravanGame : MonoBehaviour
             y -= 92;
         }
 
-        var start = B(root, weight >= 6 ? "ابدأ الدفاع ⚔️" : "اختر معدات أكثر (6 على الأقل)", 26);
+        var start = B(root, weight >= 6 ? "ابدأ الدفاع عن " + stages[currentStage] + " ⚔️" : "اختر معدات أكثر (6 على الأقل)", 26);
         R(start, 0, -650, 980, 90);
         start.onClick.AddListener(() =>
         {
@@ -262,7 +269,7 @@ public class CaravanGame : MonoBehaviour
     void StartBattle()
     {
         wave = 1;
-        enemiesLeft = 3;
+        enemiesLeft = 2 + currentStage;
         caravanHp = 3;
         defeatedThisRun = 0;
         rewardGrantedThisRun = 0;
@@ -286,12 +293,12 @@ public class CaravanGame : MonoBehaviour
         R(scene, 0, 150, 1000, 800);
 
         float x = -280;
-        string[] enemies = { "⚔️", "🦂", "⚔️" };
+        string[] enemyTypes = { "⚔️", "🦂", "🐺", "🏹", "🛡️" };
 
-        for (int i = 0; i < enemies.Length; i++)
+        for (int i = 0; i < enemiesLeft; i++)
         {
             int enemyIndex = i;
-            var b = B(root, enemies[i], 45);
+            var b = B(root, enemyTypes[(i + currentStage) % enemyTypes.Length], 45);
             R(b, x, -250, 180, 120);
             b.onClick.AddListener(() => HitEnemy(b, enemyIndex));
             x += 280;
@@ -320,7 +327,7 @@ public class CaravanGame : MonoBehaviour
         if (wave < 3)
         {
             wave++;
-            enemiesLeft = 3;
+            enemiesLeft = 2 + currentStage;
             SaveProgress();
             RenderBattle();
             return;
